@@ -1,0 +1,7 @@
+/system       /dev/block/mmcblk0p19    ext4    ro
+/cache        /dev/block/mmcblk0p18    ext4    noatime,nosuid,nodev
+/data         /dev/block/mmcblk0p20    ext4    noatime,nosuid,nodev
+/boot         /dev/block/mmcblk0p11    emmc    defaults
+/kernel_recovery /dev/block/mmcblk0p15 emmc    defaults
+/recovery     /dev/block/mmcblk0p14    emmc    defaults
+/external_sd  /dev/block/mmcblk1p1     vfat    defaults
