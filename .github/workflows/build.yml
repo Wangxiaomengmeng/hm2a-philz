@@ -1,0 +1,84 @@
+name: Build PhilZ Touch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
+          sudo apt-get clean
+          df -h
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-core gnupg flex bison gperf build-essential \
+            zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 \
+            lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev \
+            ccache libgl1-mesa-dev libxml2-utils xsltproc unzip python2 \
+            openjdk-8-jdk
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
+          sudo ln -sf /usr/bin/python2 /usr/bin/python2.7
+
+      - name: Patch Java version check
+        run: |
+          sudo mkdir -p /tmp/cm11_patch
+          echo "patched later"
+
+      - name: Setup repo
+        run: |
+          mkdir ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> $GITHUB_PATH
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Sync CM11
+        run: |
+          mkdir ~/cm11 && cd ~/cm11
+          repo init -u https://github.com/CyanogenMod/android.git -b cm-11.0
+          repo sync -c --no-tags -j8 --force-sync
+
+      - name: Patch Java check
+        run: |
+          cd ~/cm11/build
+          sed -i 's/1\\.[67]/1.[678]/g' core/main.mk || true
+          grep -n "1\.\[678\]" core/main.mk || true
+
+      - name: Add PhilZ
+        run: |
+          cd ~/cm11
+          git clone https://github.com/PhilZ-cwm6/philz_touch_cwm6 bootable/recovery-philz -b cm-11.0
+
+      - name: Add device tree
+        run: |
+          mkdir -p ~/cm11/device/xiaomi/hm2a
+          cp -r $GITHUB_WORKSPACE/device/xiaomi/hm2a/* ~/cm11/device/xiaomi/hm2a/
+
+      - name: Build
+        run: |
+          cd ~/cm11
+          source build/envsetup.sh
+          lunch cm_hm2a-eng
+          export RECOVERY_VARIANT=philz
+          mka -j4 recoveryimage
+
+      - name: Upload recovery.img
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery
+          path: /home/runner/cm11/out/target/product/hm2a/recovery.img
+
+      - name: Upload recovery ramdisk
+        uses: actions/upload-artifact@v4
+        with:
+          name: ramdisk
+          path: /home/runner/cm11/out/target/product/hm2a/ramdisk-recovery.img
